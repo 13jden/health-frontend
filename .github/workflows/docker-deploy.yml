@@ -3,7 +3,7 @@ run-name: ${{ github.actor }} - ${{ github.event.head_commit.message }} 🚀
 on:
   push:
     branches:
-      - master
+      - main
 
 jobs:
   build-and-deploy:
