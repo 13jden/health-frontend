@@ -94,12 +94,12 @@ jobs:
             echo "=== Testing SSH Connection over 443 ==="
             ssh -T git@github.com
             
-            # 克隆或更新代码仓库 - 使用SSH over HTTPS
+            # 克隆或更新代码仓库 - 使用正确的仓库地址
             if [ -d "/opt/health-frontend/.git" ]; then
               cd /opt/health-frontend
-              git pull origin master
+              git pull origin main
             else
-              git clone git@github.com:13jden/health-admin-fronted.git /opt/health-frontend
+              git clone git@github.com:13jden/health-frontend.git /opt/health-frontend
               cd /opt/health-frontend
             fi
             
