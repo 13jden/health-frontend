@@ -1,0 +1,116 @@
+name: Build and Deploy Frontend
+run-name: ${{ github.actor }} - ${{ github.event.head_commit.message }} 🚀
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Build project
+        run: npm run build
+        
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        
+      - name: Login to Aliyun ACR
+        uses: docker/login-action@v3
+        with:
+          registry: crpi-aer4k3m8uw2sue3f.cn-hangzhou.personal.cr.aliyuncs.com
+          username: ${{ secrets.ALIYUN_ACR_USERNAME }}
+          password: ${{ secrets.ALIYUN_ACR_PASSWORD }}
+          
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            crpi-aer4k3m8uw2sue3f.cn-hangzhou.personal.cr.aliyuncs.com/dzkdzk/travel-fronted:latest
+            crpi-aer4k3m8uw2sue3f.cn-hangzhou.personal.cr.aliyuncs.com/dzkdzk/travel-fronted:${{ github.sha }}
+          build-args: |
+            GIT_COMMIT_ID=${{ github.sha }}
+            
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          script: |
+            # 设置环境变量
+            export NGINX_PORT=3000
+            
+            # 使用 sudo 创建部署目录并设置权限
+            sudo mkdir -p /opt/travel-frontend
+            sudo chown -R $USER:$USER /opt/travel-frontend
+            sudo chmod 755 /opt/travel-frontend
+            
+            # 配置 SSH 密钥
+            mkdir -p ~/.ssh
+            chmod 700 ~/.ssh
+            echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+            chmod 600 ~/.ssh/id_rsa
+            
+            # 配置 SSH 使用 443 端口连接 GitHub
+            cat > ~/.ssh/config << 'EOF'
+            Host github.com
+                Hostname ssh.github.com
+                Port 443
+                User git
+            EOF
+            chmod 600 ~/.ssh/config
+            
+            # 配置 SSH 主机密钥验证
+            ssh-keyscan -p 443 ssh.github.com >> ~/.ssh/known_hosts
+            
+            # 启动 SSH agent 并添加密钥
+            eval "$(ssh-agent -s)"
+            ssh-add ~/.ssh/id_rsa
+            
+            # 配置 Git 用户信息
+            git config --global user.name "Deploy Bot"
+            git config --global user.email "deploy@travel-frontend"
+            
+            # 测试 SSH 连接（使用 443 端口）
+            echo "=== Testing SSH Connection over 443 ==="
+            ssh -T git@github.com
+            
+            # 克隆或更新代码仓库 - 使用SSH over HTTPS
+            if [ -d "/opt/travel-frontend/.git" ]; then
+              cd /opt/travel-frontend
+              git pull origin master
+            else
+              git clone git@github.com:13jden/travel-admin-fronted.git /opt/travel-frontend
+              cd /opt/travel-frontend
+            fi
+            
+            # 登录阿里云 ACR
+            echo "${{ secrets.ALIYUN_ACR_PASSWORD }}" | docker login --username="${{ secrets.ALIYUN_ACR_USERNAME }}" --password-stdin crpi-aer4k3m8uw2sue3f.cn-hangzhou.personal.cr.aliyuncs.com
+            
+            # 拉取最新镜像
+            docker pull crpi-aer4k3m8uw2sue3f.cn-hangzhou.personal.cr.aliyuncs.com/dzkdzk/travel-fronted:latest
+            
+            # 停止旧容器（如果存在）
+            cd /opt/travel-frontend
+            docker-compose down || true
+            
+            # 启动新容器
+            docker-compose up -d
+            
+            # 清理旧镜像
+            docker image prune -f
