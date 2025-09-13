@@ -55,10 +55,14 @@ jobs:
             # 设置环境变量
             export NGINX_PORT=3000
             
+            # 安装必要的工具
+            sudo apt-get update
+            sudo apt-get install -y git curl
+            
             # 使用 sudo 创建部署目录并设置权限
-            sudo mkdir -p /opt/travel-frontend
-            sudo chown -R $USER:$USER /opt/travel-frontend
-            sudo chmod 755 /opt/travel-frontend
+            sudo mkdir -p /opt/health-frontend
+            sudo chown -R $USER:$USER /opt/health-frontend
+            sudo chmod 755 /opt/health-frontend
             
             # 配置 SSH 密钥
             mkdir -p ~/.ssh
@@ -91,12 +95,12 @@ jobs:
             ssh -T git@github.com
             
             # 克隆或更新代码仓库 - 使用SSH over HTTPS
-            if [ -d "/opt/travel-frontend/.git" ]; then
-              cd /opt/travel-frontend
+            if [ -d "/opt/health-frontend/.git" ]; then
+              cd /opt/health-frontend
               git pull origin master
             else
-              git clone git@github.com:13jden/travel-admin-fronted.git /opt/travel-frontend
-              cd /opt/travel-frontend
+              git clone git@github.com:13jden/health-admin-fronted.git /opt/health-frontend
+              cd /opt/health-frontend
             fi
             
             # 登录阿里云 ACR
@@ -106,7 +110,7 @@ jobs:
             docker pull crpi-aer4k3m8uw2sue3f.cn-hangzhou.personal.cr.aliyuncs.com/dzkdzk/travel-fronted:latest
             
             # 停止旧容器（如果存在）
-            cd /opt/travel-frontend
+            cd /opt/health-frontend
             docker-compose down || true
             
             # 启动新容器
