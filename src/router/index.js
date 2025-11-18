@@ -35,16 +35,16 @@ const routes = [
         meta: { title: "医生管理" }
       },
       {
-        path: "appointments",
-        name: "Appointments",
-        component: () => import("../views/Appointments.vue"),
-        meta: { title: "预约管理" }
-      },
-      {
         path: "departments",
         name: "Departments",
         component: () => import("../views/Departments.vue"),
         meta: { title: "科室管理" }
+      },
+      {
+        path: "patients/:id/punch",
+        name: "PatientPunch",
+        component: () => import("../views/PatientPunch.vue"),
+        meta: { title: "患者打卡" }
       }
     ]
   }

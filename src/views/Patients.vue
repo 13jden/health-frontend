@@ -78,11 +78,15 @@
         <el-table-column prop="idCard" label="身份证号" width="180" show-overflow-tooltip />
         <el-table-column prop="address" label="地址" min-width="200" show-overflow-tooltip />
         <el-table-column prop="createTime" label="创建时间" width="160" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="260" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" @click="openDialog(row)">
               <el-icon><Edit /></el-icon>
               编辑
+            </el-button>
+            <el-button size="small" type="success" @click="handlePunch(row)">
+              <el-icon><Clock /></el-icon>
+              打卡
             </el-button>
             <el-button size="small" type="danger" @click="handleDelete(row.id)">
               <el-icon><Delete /></el-icon>
@@ -107,6 +111,9 @@
               </el-tag>
             </div>
             <div class="card-actions">
+              <el-button size="small" type="success" @click="handlePunch(patient)">
+                <el-icon><Clock /></el-icon>
+              </el-button>
               <el-button size="small" type="primary" @click="openDialog(patient)">
                 <el-icon><Edit /></el-icon>
               </el-button>
@@ -236,8 +243,9 @@
 
 <script>
 import { ref, reactive, computed, onMounted, onUnmounted } from "vue"
+import { useRouter } from "vue-router"
 import { ElMessage, ElMessageBox } from "element-plus"
-import { Plus, Search, Refresh, Edit, Delete } from "@element-plus/icons-vue"
+import { Plus, Search, Refresh, Edit, Delete, Clock } from "@element-plus/icons-vue"
 
 export default {
   name: "Patients",
@@ -246,9 +254,11 @@ export default {
     Search,
     Refresh,
     Edit,
-    Delete
+    Delete,
+    Clock
   },
   setup() {
+    const router = useRouter()
     const formRef = ref()
     const loading = ref(false)
     const submitting = ref(false)
@@ -417,6 +427,10 @@ export default {
       }
     }
 
+    const handlePunch = (patient) => {
+      router.push({ name: "PatientPunch", params: { id: patient.id } })
+    }
+
     // 删除患者
     const handleDelete = async (id) => {
       try {
@@ -471,6 +485,7 @@ export default {
     })
 
     return {
+      router,
       formRef,
       loading,
       submitting,
@@ -486,6 +501,7 @@ export default {
       filteredPatients,
       openDialog,
       handleSubmit,
+      handlePunch,
       handleDelete,
       handleSearch,
       handleReset,

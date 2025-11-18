@@ -42,14 +42,6 @@
           <el-menu-item index="/doctors">医生列表</el-menu-item>
         </el-sub-menu>
         
-        <el-sub-menu index="appointment">
-          <template #title>
-            <el-icon><Calendar /></el-icon>
-            <span>预约管理</span>
-          </template>
-          <el-menu-item index="/appointments">预约列表</el-menu-item>
-        </el-sub-menu>
-        
         <el-sub-menu index="department">
           <template #title>
             <el-icon><OfficeBuilding /></el-icon>
@@ -113,7 +105,6 @@ import {
   House,
   User,
   Avatar,
-  Calendar,
   OfficeBuilding,
   ArrowDown,
   Setting,
@@ -127,7 +118,6 @@ export default {
     House,
     User,
     Avatar,
-    Calendar,
     OfficeBuilding,
     ArrowDown,
     Setting,

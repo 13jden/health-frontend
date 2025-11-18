@@ -50,13 +50,13 @@
           </div>
         </div>
         
-        <div class="action-card" @click="navigateTo('/appointments')">
-          <div class="action-icon appointment">
-            <el-icon><Calendar /></el-icon>
+        <div class="action-card" @click="navigateToPunch">
+          <div class="action-icon punch">
+            <el-icon><Finished /></el-icon>
           </div>
           <div class="action-content">
-            <h3>预约管理</h3>
-            <p>管理预约信息</p>
+            <h3>患者打卡</h3>
+            <p>记录患者每日状态</p>
           </div>
         </div>
         
@@ -99,18 +99,18 @@
 import { ref, onMounted } from "vue"
 import { useRouter } from "vue-router"
 import { ElMessage } from "element-plus"
-import { User, Avatar, Calendar, OfficeBuilding, Check, Warning, InfoFilled } from "@element-plus/icons-vue"
+import { User, Avatar, OfficeBuilding, Check, Warning, InfoFilled, Finished } from "@element-plus/icons-vue"
 
 export default {
   name: "Home",
   components: {
     User,
     Avatar,
-    Calendar,
     OfficeBuilding,
     Check,
     Warning,
-    InfoFilled
+    InfoFilled,
+    Finished
   },
   setup() {
     const router = useRouter()
@@ -185,6 +185,11 @@ export default {
     const navigateTo = (path) => {
       router.push(path)
     }
+
+    const navigateToPunch = () => {
+      router.push("/patients")
+      ElMessage.info("请选择患者以记录打卡")
+    }
     
     onMounted(() => {
       loadStats()
@@ -195,7 +200,8 @@ export default {
       stats,
       recentActivities,
       getActivityIcon,
-      navigateTo
+      navigateTo,
+      navigateToPunch
     }
   }
 }
@@ -315,6 +321,10 @@ export default {
 
 .action-icon.department {
   background: linear-gradient(135deg, #43e97b, #38f9d7);
+}
+
+.action-icon.punch {
+  background: linear-gradient(135deg, #f6d365, #fda085);
 }
 
 .action-content h3 {
