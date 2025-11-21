@@ -6,12 +6,12 @@
           <el-icon><Back /></el-icon>
           返回患者列表
         </el-button>
-        <h2>患者健康打卡概览</h2>
+        <h2>患者详细信息</h2>
         <p>查看患者在客户端的体测、饮食、锻炼与智能报告</p>
       </div>
       <div class="header-right" v-if="patient">
-        <el-tag type="success">患者ID：{{ patient.id }}</el-tag>
-        <el-tag>{{ patient.gender }} · {{ patient.age }}岁</el-tag>
+        <el-tag type="success">用户ID：{{ patient.id }}</el-tag>
+        <el-tag v-if="patient.department">{{ patient.department }}</el-tag>
       </div>
     </div>
 
@@ -24,15 +24,21 @@
             </div>
           </template>
           <template v-if="patient">
+            <div class="profile-avatar">
+              <el-avatar v-if="patient.avatar" :src="patient.avatar" :size="80" />
+              <el-avatar v-else :size="80" :style="{ backgroundColor: '#409EFF' }">
+                {{ getAvatarText(patient) }}
+              </el-avatar>
+            </div>
             <div class="profile-name">
-              <strong>{{ patient.name }}</strong>
-              <span>{{ patient.department }}</span>
+              <strong>{{ patient.name || patient.username }}</strong>
+              <span>{{ patient.department || '-' }}</span>
             </div>
             <el-descriptions :column="1" border>
-              <el-descriptions-item label="主管医生">{{ patient.doctor }}</el-descriptions-item>
-              <el-descriptions-item label="联系电话">{{ patient.phone }}</el-descriptions-item>
-              <el-descriptions-item label="紧急联系人">{{ patient.emergencyContact }}</el-descriptions-item>
-              <el-descriptions-item label="紧急电话">{{ patient.emergencyPhone }}</el-descriptions-item>
+              <el-descriptions-item label="性别" v-if="patient.gender">{{ patient.gender }}</el-descriptions-item>
+              <el-descriptions-item label="出生日期" v-if="patient.birthdate">{{ patient.birthdate }}</el-descriptions-item>
+              <el-descriptions-item label="联系电话" v-if="patient.phone">{{ patient.phone }}</el-descriptions-item>
+              <el-descriptions-item label="邮箱" v-if="patient.email">{{ patient.email }}</el-descriptions-item>
             </el-descriptions>
           </template>
           <el-empty v-else description="未找到患者信息" />
@@ -99,7 +105,7 @@
             <el-table-column prop="weight" label="体重(kg)" width="120" />
             <el-table-column prop="bmi" label="BMI" width="100" />
             <el-table-column prop="boneAge" label="骨龄" width="100" />
-            <el-table-column prop="createTime" label="采集时间" min-width="200" show-overflow-tooltip />
+            <el-table-column prop="createTime" label="创建时间" min-width="200" show-overflow-tooltip />
           </el-table>
         </el-card>
 
@@ -109,7 +115,7 @@
               <div class="module-meta">
                 <el-icon class="diet-icon"><ForkSpoon /></el-icon>
                 <div>
-                  <h3>饮食打卡</h3>
+                  <h3>饮食记录</h3>
                   <p>客户端上传的膳食与营养素记录</p>
                 </div>
               </div>
@@ -164,7 +170,7 @@
             </el-button>
           </div>
           <div v-if="!dietRecords.length" class="empty-block">
-            <el-empty description="暂无饮食打卡" />
+            <el-empty description="暂无饮食记录" />
           </div>
         </el-card>
 
@@ -174,7 +180,7 @@
               <div class="module-meta">
                 <el-icon class="sport-icon"><Timer /></el-icon>
                 <div>
-                  <h3>锻炼打卡</h3>
+                  <h3>锻炼记录</h3>
                   <p>记录客户端的运动类型、强度与消耗</p>
                 </div>
               </div>
@@ -263,6 +269,7 @@ import { ref, computed, onMounted } from "vue"
 import { useRoute, useRouter } from "vue-router"
 import { ElMessage } from "element-plus"
 import { Back, DataAnalysis, ForkSpoon, Timer, Document } from "@element-plus/icons-vue"
+import { childAPI, dietRecordAPI, exerciseRecordAPI, growthRecordAPI } from "../api/index"
 
 export default {
   name: "PatientPunch",
@@ -340,164 +347,123 @@ export default {
       exerciseRecords.value.slice(0, Math.min(exerciseDisplayCount.value, exerciseRecords.value.length))
     )
 
+    // 获取头像文字（首字符）
+    const getAvatarText = (user) => {
+      const name = user?.name || user?.username || ""
+      return name ? name.charAt(0).toUpperCase() : "?"
+    }
+
     const loadData = async () => {
       loading.value = true
-      await new Promise(resolve => setTimeout(resolve, 300))
-      if (!route.params.id) {
-        ElMessage.error("缺少患者ID参数")
-        router.push("/patients")
-        return
+      try {
+        if (!route.params.id) {
+          ElMessage.error("缺少患者ID参数")
+          router.push("/patients")
+          return
+        }
+
+        const childId = Number(route.params.id)
+
+        // 根据childId加载儿童信息
+        try {
+          const childResponse = await childAPI.getChild(childId)
+          if (childResponse.data) {
+            const childData = childResponse.data
+            patient.value = {
+              id: childData.id || childId,
+              name: childData.name || "",
+              phone: "", // 儿童信息中没有电话，电话在家长信息中
+              department: "", // 儿童信息中没有科室
+              email: "", // 儿童信息中没有邮箱，邮箱在家长信息中
+              avatar: "", // 儿童信息中没有头像
+              gender: childData.gender || "",
+              birthdate: childData.birthdate || "",
+              height: childData.height || null,
+              weight: childData.weight || null,
+              bmi: childData.bmi || null,
+              boneAge: childData.boneAge || null,
+              testDate: childData.testDate || null
+            }
+          }
+        } catch (error) {
+          console.error("加载儿童信息失败:", error)
+          ElMessage.warning("无法加载儿童基本信息，但可以查看记录数据")
+        }
+
+        // 加载生长记录（体测记录）
+        try {
+          const growthResponse = await growthRecordAPI.getRecordsByChildId(childId)
+          if (growthResponse.data) {
+            bodyTests.value = (growthResponse.data || []).map(record => ({
+              id: record.id,
+              childId: record.childId,
+              height: record.height,
+              weight: record.weight,
+              bmi: record.bmi,
+              boneAge: record.boneAge,
+              testDate: record.testDate || record.recordDate,
+              createTime: record.createTime
+            }))
+          }
+        } catch (error) {
+          console.error("加载体测记录失败:", error)
+          bodyTests.value = []
+        }
+
+        // 加载饮食记录
+        try {
+          const dietResponse = await dietRecordAPI.getRecordsByChildId(childId)
+          if (dietResponse.data) {
+            dietRecords.value = dietResponse.data || []
+          }
+        } catch (error) {
+          console.error("加载饮食记录失败:", error)
+          dietRecords.value = []
+        }
+        dietDisplayCount.value = initialDisplayCount
+
+        // 加载运动记录
+        try {
+          const exerciseResponse = await exerciseRecordAPI.getRecordsByChildId(childId)
+          if (exerciseResponse.data) {
+            exerciseRecords.value = exerciseResponse.data || []
+          }
+        } catch (error) {
+          console.error("加载运动记录失败:", error)
+          exerciseRecords.value = []
+        }
+        exerciseDisplayCount.value = initialDisplayCount
+
+        // 生成报告（基于现有数据）
+        if (bodyTests.value.length > 0 || dietRecords.value.length > 0 || exerciseRecords.value.length > 0) {
+          const latestTest = bodyTests.value[0]
+          const reportLines = ["## 智能报告"]
+          
+          if (latestTest) {
+            reportLines.push("### 体测趋势")
+            reportLines.push(`- 最近一次体测日期：${latestTest.testDate}，BMI ${latestTest.bmi}，骨龄 ${latestTest.boneAge} 岁。`)
+          }
+          
+          if (dietRecords.value.length > 0) {
+            reportLines.push("### 饮食分析")
+            reportLines.push(`- 共有 ${dietRecords.value.length} 条饮食记录，总热量约 ${dietSummary.value.calories} kcal。`)
+          }
+          
+          if (exerciseRecords.value.length > 0) {
+            reportLines.push("### 锻炼建议")
+            reportLines.push(`- 共有 ${exerciseRecords.value.length} 条运动记录，总时长 ${exerciseSummary.value.duration} 分钟。`)
+          }
+          
+          reportContent.value = reportLines.join("\n")
+        } else {
+          reportContent.value = ""
+        }
+      } catch (error) {
+        console.error("加载数据失败:", error)
+        ElMessage.error("加载数据失败")
+      } finally {
+        loading.value = false
       }
-
-      patient.value = {
-        id: route.params.id,
-        name: "张三",
-        gender: "男",
-        age: 12,
-        phone: "13800138001",
-        department: "儿童康复科",
-        doctor: "李医生",
-        emergencyContact: "张妈妈",
-        emergencyPhone: "13900139001"
-      }
-
-      bodyTests.value = [
-        {
-          id: 3,
-          childId: 1,
-          height: 120.0,
-          weight: 35.0,
-          bmi: 24.3,
-          boneAge: 8.0,
-          testDate: "2025-10-20",
-          createTime: "Mon Oct 20 11:15:33 CST 2025"
-        },
-        {
-          id: 2,
-          childId: 1,
-          height: 100.0,
-          weight: 20.0,
-          bmi: 20.0,
-          boneAge: 5.0,
-          testDate: "2022-03-01",
-          createTime: "Mon Oct 20 00:10:34 CST 2025"
-        },
-        {
-          id: 1,
-          childId: 1,
-          height: 70.0,
-          weight: 14.0,
-          bmi: 28.6,
-          boneAge: 2.0,
-          testDate: "2020-04-01",
-          createTime: "Mon Oct 20 00:10:09 CST 2025"
-        }
-      ]
-
-      dietRecords.value = [
-        {
-          id: 2,
-          childId: 1,
-          mealType: "晚餐",
-          foodName: "烤串拼盘",
-          foodCategory: "烧烤",
-          quantity: 500.0,
-          unit: "克",
-          calories: 800.0,
-          protein: 40.0,
-          carbohydrate: 20.0,
-          fat: 60.0,
-          fiber: 5.0,
-          recordDate: "2025-11-17",
-          notes: "包含牛肉串、鸡肉串和蔬菜串，搭配绿色蔬菜和炸物，适合晚餐食用。",
-          imageList: ["http://115.190.53.97:8081/files/diet/2025/11/17/a5016e45-aeaa-422e-af7f-c91d9ae4aa78.jpg"]
-        },
-        {
-          id: 1,
-          childId: 1,
-          mealType: "早餐",
-          foodName: "牛肉米粉",
-          foodCategory: "主食",
-          quantity: 500.0,
-          unit: "克",
-          calories: 600.0,
-          protein: 25.0,
-          carbohydrate: 90.0,
-          fat: 15.0,
-          fiber: 3.0,
-          recordDate: "2025-11-09",
-          notes: "包含牛肉片、鸡蛋、香菜和辣椒油，适合早餐食用。",
-          imageList: ["http://115.190.53.97:8081/files/diet/2025/11/09/78761be7-a75a-4e60-b1f8-351dff707703.jpg"]
-        }
-      ]
-      dietDisplayCount.value = initialDisplayCount
-
-      exerciseRecords.value = [
-        {
-          id: 4,
-          childId: 1,
-          exerciseType: "跑步",
-          exerciseCategory: "有氧运动",
-          duration: 30,
-          intensity: "中等强度",
-          caloriesBurned: 157.5,
-          recordDate: "2025-11-17",
-          notes: ""
-        },
-        {
-          id: 2,
-          childId: 1,
-          exerciseType: "骑行",
-          exerciseCategory: "有氧运动",
-          duration: 60,
-          intensity: "中高强度",
-          caloriesBurned: 115.5,
-          distance: 20.0,
-          recordDate: "2025-11-15",
-          notes: ""
-        },
-        {
-          id: 3,
-          childId: 1,
-          exerciseType: "跑步",
-          exerciseCategory: "有氧运动",
-          duration: 25,
-          intensity: "中等",
-          caloriesBurned: 15.31,
-          recordDate: "2025-11-15",
-          notes: ""
-        },
-        {
-          id: 1,
-          childId: 1,
-          exerciseType: "跑步",
-          exerciseCategory: "有氧运动",
-          duration: 30,
-          intensity: "高强度",
-          caloriesBurned: 157.5,
-          recordDate: "2025-11-10",
-          notes: ""
-        }
-      ]
-      exerciseDisplayCount.value = initialDisplayCount
-
-      reportContent.value = [
-        "## 智能报告",
-        "### 体测趋势",
-        "- 最近一次体测日期：2025-10-20，BMI 24.3，骨龄 8 岁。",
-        "- 身高较2022年上涨 20 cm，体重增长 15 kg。",
-        "### 饮食分析",
-        "- 近2次饮食记录总热量约 1400 kcal，建议控制晚餐油脂摄入。",
-        "- 早餐营养均衡，搭配蛋白质与碳水，继续保持。",
-        "### 锻炼建议",
-        "- 近一周共训练 145 分钟，其中跑步占 57%。",
-        "- 建议增加力量训练与拉伸，平衡肌群发展。",
-        "### 医生建议",
-        "- 关注体脂增长速度，建议每周监测一次体重。",
-        "- 睡眠与饮食需同步记录，方便持续追踪。"
-      ].join("\n")
-
-      loading.value = false
     }
 
     const handleDownloadReport = () => {
@@ -562,7 +528,8 @@ export default {
       loadMoreDiet,
       collapseDiet,
       loadMoreExercise,
-      collapseExercise
+      collapseExercise,
+      getAvatarText
     }
   }
 }
@@ -614,11 +581,18 @@ export default {
   color: #303133;
 }
 
+.profile-avatar {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 16px;
+}
+
 .profile-name {
   display: flex;
   flex-direction: column;
   gap: 4px;
   margin-bottom: 16px;
+  text-align: center;
 }
 
 .profile-name strong {

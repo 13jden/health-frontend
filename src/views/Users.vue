@@ -1,34 +1,26 @@
 <template>
-  <div class="patients-container">
-    <!-- 页面头部 -->
+  <div class="users-container">
     <div class="page-header">
       <div class="header-left">
-        <h2>患者管理</h2>
-        <p>管理医院患者信息</p>
+        <h2>用户管理</h2>
+        <p>管理系统家长/管理员账户</p>
       </div>
       <el-button type="primary" @click="openDialog()" class="add-btn">
         <el-icon><Plus /></el-icon>
-        新增患者
+        新增用户
       </el-button>
     </div>
 
-    <!-- 搜索和筛选 -->
     <el-card class="search-card" shadow="never">
       <el-form :model="searchForm" inline class="search-form">
-        <el-form-item label="姓名">
+        <el-form-item label="用户名">
           <el-input
             v-model="searchForm.name"
-            placeholder="请输入患者姓名"
+            placeholder="请输入用户名"
             clearable
             style="width: 200px"
             @keyup.enter="handleSearch"
           />
-        </el-form-item>
-        <el-form-item label="性别">
-          <el-select v-model="searchForm.gender" placeholder="请选择性别" clearable style="width: 120px">
-            <el-option label="男" value="男" />
-            <el-option label="女" value="女" />
-          </el-select>
         </el-form-item>
         <el-form-item label="手机号">
           <el-input
@@ -38,6 +30,21 @@
             style="width: 180px"
             @keyup.enter="handleSearch"
           />
+        </el-form-item>
+        <el-form-item label="角色">
+          <el-select
+            v-model="searchForm.role"
+            placeholder="请选择角色"
+            clearable
+            style="width: 160px"
+          >
+            <el-option
+              v-for="item in roleOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSearch">
@@ -52,11 +59,9 @@
       </el-form>
     </el-card>
 
-    <!-- 患者列表 -->
     <el-card class="table-card" shadow="never">
-      <!-- 桌面端表格 -->
       <el-table
-        :data="filteredPatients"
+        :data="users"
         v-loading="loading"
         stripe
         style="width: 100%"
@@ -64,34 +69,23 @@
         class="desktop-table"
       >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="childId" label="儿童ID" width="90" />
-        <el-table-column prop="childName" label="儿童姓名" width="140" />
-        <el-table-column label="性别" width="80">
+        <el-table-column prop="id" label="ID" width="80" />
+        <el-table-column prop="username" label="用户名" width="140" />
+        <el-table-column prop="phone" label="手机号" width="150" />
+        <el-table-column prop="email" label="邮箱" width="200" show-overflow-tooltip />
+        <el-table-column prop="department" label="部门" width="120" />
+        <el-table-column prop="role" label="角色" width="100">
           <template #default="{ row }">
-            {{ row.childGender || '-' }}
+            <el-tag size="small">{{ row.role || 'USER' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="birthDate" label="出生日期" width="140" />
-        <el-table-column label="年龄" width="90">
-          <template #default="{ row }">
-            {{ row.childAge || formatAge(row.birthDate) || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="parentName" label="监护人" width="140" />
-        <el-table-column prop="parentPhone" label="联系电话" width="150" />
-        <el-table-column prop="parentEmail" label="监护人邮箱" width="200" show-overflow-tooltip />
-        <el-table-column prop="department" label="所属科室" width="140" />
-        <el-table-column label="操作" width="260" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button size="small" type="primary" @click="openDialog(row)">
               <el-icon><Edit /></el-icon>
               编辑
             </el-button>
-            <el-button size="small" type="success" @click="handlePunch(row)">
-              <el-icon><Clock /></el-icon>
-              详细信息
-            </el-button>
-            <el-button size="small" type="danger" @click="handleDelete(row)">
+            <el-button size="small" type="danger" @click="handleDelete(row.id)">
               <el-icon><Delete /></el-icon>
               删除
             </el-button>
@@ -99,34 +93,22 @@
         </el-table-column>
       </el-table>
 
-      <!-- 移动端卡片列表 -->
       <div class="mobile-list" v-if="isMobile">
-        <div 
-          v-for="patient in filteredPatients" 
-          :key="patient.id"
+        <div
+          v-for="user in users"
+          :key="user.id"
           class="mobile-card"
         >
           <div class="card-header">
             <div class="card-title">
-              <div class="patient-name-row">
-                <span class="patient-name">{{ patient.childName }}</span>
-                <el-tag size="small" type="info">{{ patient.childGender || '未知' }}</el-tag>
-              </div>
-              <small class="patient-meta">
-                <span v-if="patient.birthDate">出生：{{ patient.birthDate }}</span>
-                <span v-if="patient.childAge || formatAge(patient.birthDate)">
-                  年龄：{{ patient.childAge || formatAge(patient.birthDate) }}
-                </span>
-              </small>
+              <span class="user-name">{{ user.username }}</span>
+              <el-tag size="small">{{ user.role || 'USER' }}</el-tag>
             </div>
             <div class="card-actions">
-              <el-button size="small" type="success" @click="handlePunch(patient)">
-                <el-icon><Clock /></el-icon>
-              </el-button>
-              <el-button size="small" type="primary" @click="openDialog(patient)">
+              <el-button size="small" type="primary" @click="openDialog(user)">
                 <el-icon><Edit /></el-icon>
               </el-button>
-              <el-button size="small" type="danger" @click="handleDelete(patient)">
+              <el-button size="small" type="danger" @click="handleDelete(user.id)">
                 <el-icon><Delete /></el-icon>
               </el-button>
             </div>
@@ -134,25 +116,20 @@
           <div class="card-content">
             <div class="info-row">
               <span class="label">手机：</span>
-              <span class="value">{{ patient.parentPhone || '-' }}</span>
+              <span class="value">{{ user.phone || '-' }}</span>
             </div>
             <div class="info-row">
               <span class="label">邮箱：</span>
-              <span class="value">{{ patient.parentEmail || '-' }}</span>
+              <span class="value">{{ user.email || '-' }}</span>
             </div>
             <div class="info-row">
               <span class="label">部门：</span>
-              <span class="value">{{ patient.department || '-' }}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">监护人：</span>
-              <span class="value">{{ patient.parentName || '-' }}</span>
+              <span class="value">{{ user.department || '-' }}</span>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- 分页 -->
       <div class="pagination-wrapper">
         <el-pagination
           v-model:current-page="currentPage"
@@ -166,42 +143,52 @@
       </div>
     </el-card>
 
-    <!-- 新增/编辑患者对话框 -->
     <el-dialog
       v-model="dialogVisible"
-      :title="isEdit ? '编辑患者' : '新增患者'"
+      :title="isEdit ? '编辑用户' : '新增用户'"
       :width="isMobile ? '95%' : '800px'"
       :close-on-click-modal="false"
-      class="patient-dialog"
+      class="user-dialog"
     >
       <el-form
         ref="formRef"
         :model="form"
         :rules="rules"
         :label-width="isMobile ? '80px' : '120px'"
-        class="patient-form"
+        class="user-form"
       >
         <el-form-item label="用户名" prop="name">
           <el-input v-model="form.name" placeholder="请输入用户名" />
         </el-form-item>
-        
+
         <el-form-item v-if="!isEdit" label="密码" prop="password">
           <el-input v-model="form.password" type="password" placeholder="请输入密码" show-password />
         </el-form-item>
-        
+
         <el-form-item label="手机号" prop="phone">
           <el-input v-model="form.phone" placeholder="请输入手机号" />
         </el-form-item>
-        
+
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="form.email" placeholder="请输入邮箱" />
         </el-form-item>
-        
+
         <el-form-item label="部门" prop="department">
           <el-input v-model="form.department" placeholder="请输入部门" />
         </el-form-item>
+
+        <el-form-item label="角色" prop="role">
+          <el-select v-model="form.role" placeholder="请选择角色">
+            <el-option
+              v-for="item in roleOptions"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
       </el-form>
-      
+
       <template #footer>
         <div class="dialog-footer">
           <el-button @click="dialogVisible = false">取消</el-button>
@@ -216,23 +203,20 @@
 
 <script>
 import { ref, reactive, computed, onMounted, onUnmounted } from "vue"
-import { useRouter } from "vue-router"
 import { ElMessage, ElMessageBox } from "element-plus"
-import { Plus, Search, Refresh, Edit, Delete, Clock } from "@element-plus/icons-vue"
+import { Plus, Search, Refresh, Edit, Delete } from "@element-plus/icons-vue"
 import { userManagerAPI } from "../api/index"
 
 export default {
-  name: "Patients",
+  name: "Users",
   components: {
     Plus,
     Search,
     Refresh,
     Edit,
-    Delete,
-    Clock
+    Delete
   },
   setup() {
-    const router = useRouter()
     const formRef = ref()
     const loading = ref(false)
     const submitting = ref(false)
@@ -243,10 +227,15 @@ export default {
     const total = ref(0)
     const isMobile = ref(false)
 
+    const roleOptions = [
+      { label: "管理员", value: "ADMIN" },
+      { label: "普通用户", value: "USER" }
+    ]
+
     const searchForm = reactive({
       name: "",
-      gender: "",
-      phone: ""
+      phone: "",
+      role: ""
     })
 
     const form = reactive({
@@ -275,119 +264,41 @@ export default {
       ]
     }
 
-    // 患者列表数据
-    const patients = ref([])
+    const users = ref([])
 
-    // 检测屏幕尺寸
     const checkScreenSize = () => {
       isMobile.value = window.innerWidth <= 768
     }
 
-    const formatAge = (birthDate) => {
-      if (!birthDate) return ""
-      const date = new Date(birthDate)
-      if (Number.isNaN(date.getTime())) return ""
-      const diff = Date.now() - date.getTime()
-      if (diff <= 0) return ""
-      const years = Math.floor(diff / (365.25 * 24 * 60 * 60 * 1000))
-      return years > 0 ? `${years}岁` : ""
-    }
-
-    // 数据归一化
-    const normalizePatientRecord = (record) => {
-      const child =
-        record.child ||
-        record.childInfo ||
-        record.childDto ||
-        record.childUser ||
-        record.childData ||
-        record.kid ||
-        (Array.isArray(record.children) ? record.children[0] : null)
-      const guardian =
-        record.parent ||
-        record.parentInfo ||
-        record.parentDto ||
-        record.guardian ||
-        record.parentUser ||
-        record.family ||
-        record.user ||
-        null
-
-      return {
-        raw: record,
-        id: record.id ?? record.parentId ?? guardian?.id ?? child?.id ?? record.childId ?? null,
-        childId: record.childId ?? child?.id ?? record.id ?? null,
-        childName: record.childName ?? child?.name ?? child?.username ?? record.name ?? record.username ?? "-",
-        childGender: record.childGender ?? child?.gender ?? record.gender ?? "",
-        childAge: record.childAge ?? record.age ?? child?.age ?? "",
-        birthDate: record.birthDate ?? child?.birthDate ?? "",
-        parentId: record.parentId ?? guardian?.id ?? record.id ?? null,
-        parentName: record.parentName ?? guardian?.name ?? guardian?.username ?? "",
-        parentPhone: record.parentPhone ?? guardian?.phone ?? record.phone ?? "",
-        parentEmail: record.parentEmail ?? guardian?.email ?? record.email ?? "",
-        department: record.department ?? child?.department ?? guardian?.department ?? "",
-        role: record.role ?? guardian?.role ?? "USER"
-      }
-    }
-
-    // 加载患者列表
-    const loadPatients = async () => {
+    const loadUsers = async () => {
       loading.value = true
       try {
         const params = {
           current: currentPage.value,
           size: pageSize.value
         }
-        if (searchForm.name) {
-          params.childName = searchForm.name
-          params.username = searchForm.name
-        }
-        if (searchForm.phone) {
-          params.parentPhone = searchForm.phone
-          params.phone = searchForm.phone
-        }
-        if (searchForm.gender) {
-          params.gender = searchForm.gender
-          params.childGender = searchForm.gender
-        }
-        
-        const response = await userManagerAPI.getPatientList(params)
+        if (searchForm.name) params.username = searchForm.name
+        if (searchForm.phone) params.phone = searchForm.phone
+        if (searchForm.role) params.role = searchForm.role
+
+        const response = await userManagerAPI.getUserList(params)
         if (response.data) {
-          const listSource = Array.isArray(response.data)
-            ? response.data
-            : (response.data.records || response.data.list || response.data.children || [])
-          patients.value = listSource.map(normalizePatientRecord)
-          total.value = response.data.total ?? listSource.length ?? 0
+          users.value = response.data.records || response.data.list || []
+          total.value = response.data.total || 0
         }
       } catch (error) {
-        console.error("加载患者列表失败:", error)
-        ElMessage.error("加载患者列表失败")
+        console.error("加载用户列表失败:", error)
+        ElMessage.error("加载用户列表失败")
       } finally {
         loading.value = false
       }
     }
 
-    // 过滤后的患者列表（前端过滤，如果需要的话）
-    const filteredPatients = computed(() => {
-      let result = patients.value
-      
-      // 如果后端已经做了筛选，这里可以只做前端筛选
-      if (searchForm.gender) {
-        // 注意：UserDto可能没有gender字段，需要根据实际API调整
-        // result = result.filter(patient => patient.gender === searchForm.gender)
-      }
-      
-      return result
-    })
-
-    // 打开对话框
-    const openDialog = async (patient = null) => {
-      isEdit.value = !!patient
-      if (patient) {
+    const openDialog = async (user = null) => {
+      isEdit.value = !!user
+      if (user) {
         try {
-          // 获取用户详情
-          const targetId = patient.parentId || patient.id
-          const response = await userManagerAPI.getUser(targetId)
+          const response = await userManagerAPI.getUser(user.id)
           if (response.data) {
             form.id = response.data.id
             form.name = response.data.username || ""
@@ -407,7 +318,6 @@ export default {
       dialogVisible.value = true
     }
 
-    // 重置表单
     const resetForm = () => {
       Object.keys(form).forEach(key => {
         form[key] = ""
@@ -417,12 +327,11 @@ export default {
       formRef.value?.resetFields()
     }
 
-    // 提交表单
     const handleSubmit = async () => {
       try {
         await formRef.value.validate()
         submitting.value = true
-        
+
         const inputData = {
           username: form.name,
           phone: form.phone,
@@ -430,20 +339,20 @@ export default {
           department: form.department || "",
           avatar: form.avatar || "",
           password: form.password || "",
-          role: form.role || "USER"
+          role: form.role || ""
         }
-        
+
         if (isEdit.value) {
           await userManagerAPI.updateUser(form.id, inputData)
-          ElMessage.success("患者信息更新成功")
+          ElMessage.success("用户信息更新成功")
         } else {
           await userManagerAPI.createUser(inputData)
-          ElMessage.success("患者信息添加成功")
+          ElMessage.success("用户信息添加成功")
         }
-        
+
         dialogVisible.value = false
         resetForm()
-        loadPatients()
+        loadUsers()
       } catch (error) {
         console.error("表单提交失败:", error)
         ElMessage.error(error.message || "操作失败")
@@ -452,24 +361,17 @@ export default {
       }
     }
 
-    const handlePunch = (patient) => {
-      const childId = patient.childId || patient.id
-      router.push({ name: "PatientPunch", params: { id: childId } })
-    }
-
-    // 删除患者
-    const handleDelete = async (patient) => {
+    const handleDelete = async (id) => {
       try {
-        await ElMessageBox.confirm("确定要删除这个患者吗？", "提示", {
+        await ElMessageBox.confirm("确定要删除这个用户吗？", "提示", {
           confirmButtonText: "确定",
           cancelButtonText: "取消",
           type: "warning"
         })
-        
-        const targetId = patient.parentId || patient.id
-        await userManagerAPI.deleteUser(targetId)
+
+        await userManagerAPI.deleteUser(id)
         ElMessage.success("删除成功")
-        loadPatients()
+        loadUsers()
       } catch (error) {
         if (error !== "cancel") {
           console.error("删除失败:", error)
@@ -478,45 +380,41 @@ export default {
       }
     }
 
-    // 搜索
     const handleSearch = () => {
       currentPage.value = 1
-      loadPatients()
+      loadUsers()
     }
 
-    // 重置搜索
     const handleReset = () => {
       Object.keys(searchForm).forEach(key => {
         searchForm[key] = ""
       })
       currentPage.value = 1
-      loadPatients()
+      loadUsers()
     }
 
-    // 分页处理
     const handleSizeChange = (val) => {
       pageSize.value = val
       currentPage.value = 1
-      loadPatients()
+      loadUsers()
     }
 
     const handleCurrentChange = (val) => {
       currentPage.value = val
-      loadPatients()
+      loadUsers()
     }
 
     onMounted(() => {
       checkScreenSize()
-      window.addEventListener('resize', checkScreenSize)
-      loadPatients()
+      window.addEventListener("resize", checkScreenSize)
+      loadUsers()
     })
 
     onUnmounted(() => {
-      window.removeEventListener('resize', checkScreenSize)
+      window.removeEventListener("resize", checkScreenSize)
     })
 
     return {
-      router,
       formRef,
       loading,
       submitting,
@@ -529,23 +427,22 @@ export default {
       searchForm,
       form,
       rules,
-      filteredPatients,
+      users,
+      roleOptions,
       openDialog,
       handleSubmit,
-      handlePunch,
       handleDelete,
       handleSearch,
       handleReset,
       handleSizeChange,
-      handleCurrentChange,
-      formatAge
+      handleCurrentChange
     }
   }
 }
 </script>
 
 <style scoped>
-.patients-container {
+.users-container {
   padding: 24px;
   background: #f5f7fa;
   min-height: calc(100vh - 60px);
@@ -623,27 +520,14 @@ export default {
 
 .card-title {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-}
-
-.patient-name-row {
-  display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.patient-name {
+.user-name {
   font-weight: 600;
   color: #303133;
   font-size: 16px;
-}
-
-.patient-meta {
-  color: #909399;
-  display: flex;
-  gap: 12px;
 }
 
 .card-actions {
@@ -679,11 +563,11 @@ export default {
   text-align: right;
 }
 
-.patient-dialog .el-dialog__body {
+.user-dialog .el-dialog__body {
   padding: 20px 24px;
 }
 
-.patient-form .el-form-item {
+.user-form .el-form-item {
   margin-bottom: 20px;
 }
 
@@ -691,27 +575,26 @@ export default {
   text-align: right;
 }
 
-/* 响应式设计 */
 @media (max-width: 768px) {
-  .patients-container {
+  .users-container {
     padding: 16px;
   }
-  
+
   .page-header {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
   }
-  
+
   .search-form {
     flex-direction: column;
   }
-  
+
   .search-form .el-form-item {
     width: 100%;
     margin-bottom: 16px;
   }
-  
+
   .search-form .el-input,
   .search-form .el-select {
     width: 100% !important;
@@ -725,7 +608,7 @@ export default {
     display: block;
   }
 
-  .patient-dialog .el-dialog__body {
+  .user-dialog .el-dialog__body {
     padding: 16px;
   }
 
@@ -735,14 +618,14 @@ export default {
 }
 
 @media (max-width: 480px) {
-  .patients-container {
+  .users-container {
     padding: 12px;
   }
-  
+
   .page-header {
     padding: 16px;
   }
-  
+
   .header-left h2 {
     font-size: 20px;
   }
@@ -762,4 +645,5 @@ export default {
     justify-content: flex-end;
   }
 }
-</style> 
+</style>
+

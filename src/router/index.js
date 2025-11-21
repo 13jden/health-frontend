@@ -41,10 +41,10 @@ const routes = [
         meta: { title: "科室管理" }
       },
       {
-        path: "patients/:id/punch",
+        path: "patients/:id/detail",
         name: "PatientPunch",
         component: () => import("../views/PatientPunch.vue"),
-        meta: { title: "患者打卡" }
+        meta: { title: "患者详细信息" }
       }
     ]
   }
